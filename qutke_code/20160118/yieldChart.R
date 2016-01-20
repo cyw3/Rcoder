@@ -21,6 +21,9 @@ init(key)
 qtid <- c('002230.SZ','002715.SZ')
 #qtid <- '002230.SZ'
 
+#股票基本信息
+md <- getMD(data='keyMap',qtid=qtid,key=key)
+
 #2、设定买入日期是2015-10-01，获取当天收盘价（假定买入价为收盘价）.均选为收盘价
 date <- '2015-10-01'
 #股票日间行情(前复权)
@@ -57,6 +60,8 @@ fwdAdjClose2 <- (fwdAdjClose2-fwdAdjClose2[1])/fwdAdjClose2[1]*100
 
 #形成dataframe
 yieldChart <- data.frame('date'=tradingDay,'2'=fwdAdjClose1,'3'=fwdAdjClose2)
+names(yieldChart)<-c('日期',md[1,]$ChiAbbr,md[2,]$ChiAbbr)
+
 postData(yieldChart,name='yieldChart',key=key)
 
 

@@ -1,0 +1,18 @@
+{
+    "contents" : "#library('lubridate')\n#library(qutke)\n#key<-\"faca4c8ff4dc1502d87944ea9cfd74f19918f0aef37fde6746b61d4d339bfcf3\"\n#init(key)\n\n\n\ngetYieldChart<-function(date,qtid=c(),key){\n  \n  qtid <- c('002230.SZ','002715.SZ')\n  date <- '2015-10-01'\n  if(length(qtid)<=0){\n    stop(\"Qtid is more than one.\")\n  }\n  \n  #股票基本信息\n  md <- getMD(data='keyMap',qtid=qtid,key=key)\n  \n  #股票日间行情(前复权)\n  dailyQuote <- getDailyQuote(data='mktFwdDaily',qtid=qtid,startdate=date,enddate=Sys.Date(),key=key)\n  #当日收盘价(前复权)\n  \n  stock <- list()\n  qtidlength <- length(qtid)\n  i <- 1\n  while(i<=qtidlength){\n    ChiAbbr <- md[i,]$ChiAbbr\n    qtidSt <- md[i,]$qtid\n    stock[[ChiAbbr]] <- dailyQuote[which(dailyQuote$qtid==qtidSt),]\n    i <- i+1\n  }\n  \n  #x轴，作为时间轴。取买入日期至今。\n  tradingDay <- getDate(data='tradingDay',startdate=stock[[1]]$date[1],enddate=Sys.Date(),key=key)\n  \n  fwdAdjClose <- list()\n  fwdAdjClose[['date']] <- tradingDay\n  \n  #归一化\n  i <- 1\n  length <- length(tradingDay)\n  while(i<=qtidlength){\n    ChiAbbr <- md[i,]$ChiAbbr\n    j <- 1\n    while(j<=length){\n      fwdAdjClose[[ChiAbbr]] <- c(fwdAdjClose[[ChiAbbr]],stock[[ChiAbbr]][j,]$fwdAdjClose)\n      \n      if(is.null(fwdAdjClose[[ChiAbbr]][j])||is.na(fwdAdjClose[[ChiAbbr]][j])) \n        fwdAdjClose[[ChiAbbr]][j] <- fwdAdjClose[[ChiAbbr]][j-1]\n      \n      j <- j+1\n    }\n    \n    #计算\n    fwdAdjClose[[ChiAbbr]] <- (fwdAdjClose[[ChiAbbr]]-fwdAdjClose[[ChiAbbr]][1])/fwdAdjClose[[ChiAbbr]][1]*100\n    i=i+1\n  }\n  \n  #形成dataframe\n  yieldChart <-data.frame(fwdAdjClose)\n  postData(yieldChart,name='yieldChart',key=key)\n} \n",
+    "created" : 1453265958966.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3746159327",
+    "id" : "C930B096",
+    "lastKnownWriteTime" : 1453270635,
+    "path" : "~/GitHub/Rcoder/qutke_code/20160118/getYieldChart.R",
+    "project_path" : "qutke_code/20160118/getYieldChart.R",
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "type" : "r_source"
+}
