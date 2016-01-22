@@ -245,7 +245,7 @@ head(tdata)
 nrow(tdata)
 #[1] 72   对的。这个是到2012-01-01的
 
-tdata<-tdata[1:72]
+#tdata<-tdata[1:72]
 
 #利用交易信号数据，进行模拟交易
 #设定交易参数，以$10W为本金，满仓买入或卖出，手续为0，传入交易信号。
@@ -257,18 +257,25 @@ trade<-function(tdata,capital=100000,position=1,fee=0){
   value <- fortify(tdata$Value,melt=TRUE)$Value
   # %/%  %%
   asset <- capital
-  amount <- asset%/%value[1]
-  cash <- asset%%value[1]
+  if(tdata[1,]$op=='Down'){
+    amount <- (asset*position)%/%value[1]
+    cash <- (asset*position)%%value[1]
+    #奇数为0，偶数为asset减去上一次的。
+    diff <- 0.00
+  }else if(tdata[1,]$op=='UP'){
+    amount <- 0
+    cash <- asset
+    diff <- 0.00
+  }
   #奇数为0，偶数为asset减去上一次的。S(2)-B(1)
-  diff <- 0.00
   i<-2
   nrow <- nrow(tdata)
   while(i<=nrow){
     #B 买入
     if(tdata[i,]$op==1){
       asset <- c(asset,tail(asset,1))
-      amount <- c(amount,tail(asset,1)%/%value[i])
-      cash <- c(cash,tail(asset,1)%%value[i])
+      amount <- c(amount,(tail(asset,1)*position)%/%value[i])
+      cash <- c(cash,(tail(asset,1)*position)%%value[i]+(tail(asset,1)*(1-position)))
       diff <- c(diff,0.00)
     }else if(tdata[i,]$op==2){
       #S 卖出
@@ -287,12 +294,12 @@ trade<-function(tdata,capital=100000,position=1,fee=0){
   indexFall <- c()
   i <- 2
   while(i<=nrow){
-    if(result[['ticks']][i,]$diff >= 0){
+    if(result[['ticks']][i,]$diff > 0){
       indexRise <- c(indexRise,i-1,i)
     }else if(result[['ticks']][i,]$diff < 0){
       indexFall <- c(indexFall,i-1,i)
     }
-    i <- i+2
+    i <- i+1
   }
   
   result[['rise']] <- result$ticks[indexRise]
@@ -305,7 +312,7 @@ result1<-trade(tdata,100000)
 # 查看每笔交易
 head(result1$ticks)
 
-#cash是投资金,amount是持股数,asset是总财富(包含股票),diff是与上一次买入卖出的亏损或收益
+#cash是现金,amount是持股数,asset是总财富(包含股票),diff是与上一次买入卖出的亏损或收益
 
 #             Value op     cash amount     asset     diff
 #2010-01-04 132.45  B     0.25    755 100000.00     0.00
@@ -415,7 +422,8 @@ head(result2$fall)
 tail(result2$ticks,1)
 
 #资金曲线
-adata<-as.xts(result2$ticks[which(result2$ticks$op=='S'),]['cash'])
+adata<-as.xts(result1$ticks[which(result1$ticks$op==2),]$cash)
+#adata<-as.xts(result2$ticks[which(result2$ticks$op=='S'),]['cash'])
 drawCash(ldata,adata)
 
 #进一步对比两个模型的盈利情况，找出两个模型中所有赚钱的交易。
@@ -475,4 +483,3 @@ drawRange(ldata,plan,title,sDate,eDate)
 
 
 #R画图：http://www.open-open.com/lib/view/open1410081720011.html
-#CSI300指数 ：hs300<-getDailyQuote(data='mktDataIndex',qtid=c('000300.SH'),key=key)
