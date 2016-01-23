@@ -471,8 +471,6 @@ comPlan <- function(ldata,result1,result2){
   rise2[which(index(rise2)%%2==1),]$Index <- end1 
   rise1[which(index(rise1)%%2==0),]$Index <- start2
   
-  
-  
   return(data.frame(start=rise1$Index,end=rise2$Index,plan=c('plan1','plan2')))
   #return(list(data.frame(start=start1,end=end1,plan=c('plan1')),data.frame(start=start2,end=end2,plan=c('plan2'))))
 

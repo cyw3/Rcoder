@@ -6,13 +6,20 @@ library(scales)
 library(ggplot2)
 library(qutke)
 
+#library(devtools)
+#install_github('qutke/qutke')
+
+key <- 'faca4c8ff4dc1502d87944ea9cfd74f19918f0aef37fde6746b61d4d339bfcf3'
+init(key)
+
 #1、设定参数（包括股票组）
 #股票组20，取最高的5支，时间是2015-01-01至今
 
 #试验qtid
 qtid <- c('002230.SZ','002715.SZ')
+#qtid <- c('000001.SZ','000002.SZ')
 
-sDate<-as.Date("2014-1-1") #开始日期
+sDate<-as.Date("2015-1-1") #开始日期
 eDate<-Sys.Date() #结束日期
 
 
@@ -182,15 +189,14 @@ for(id in qtid){
   mktFYear <- getDailyQuote(data='mktFwdDaily',qtid = id,startdate=pdata[[id]]$date[1],enddate=pdata[[id]]$date[1],key=key)
   
   
-  #涨跌幅 .涨跌幅的计算公式是：(当前最新成交价（或收盘价）-开盘参考价)÷开盘参考价×100%
-  quoteChangeDaily <- c(quoteChangeDaily,(tail(dailyQuote,1)$close-mktYest[which(mktYest$qtid==id),]$close)/mktYest[which(mktYest$qtid==id),]$close*100)
+  #涨跌幅 .涨跌幅的计算公式是：(当前最新成交价（或收盘价）-开盘参考价)÷开盘参考价×100%  [which(mktYest$qtid==id),]
+  quoteChangeDaily <- c(quoteChangeDaily,(as.numeric(tail(pdata[[id]], 1)$close)-mktYest$close)/mktYest$close*100)
   #近1周涨跌
-  quoteChangeWeek <- c(quoteChangeWeek,(tail(dailyQuote,1)$close-mktWeek[which(mktYest$qtid==id),]$close)/mktWeek[which(mktYest$qtid==id),]$close*100)
+  quoteChangeWeek <- c(quoteChangeWeek,(as.numeric(tail(pdata[[id]], 1)$close)-mktWeek$close)/mktWeek$close*100)
   #近1月涨跌
-  quoteChangeMonth <- c(quoteChangeMonth,(tail(dailyQuote,1)$close-mktMonth[which(mktYest$qtid==id),]$close)/mktMonth[which(mktYest$qtid==id),]$close*100)
+  quoteChangeMonth <- c(quoteChangeMonth,(as.numeric(tail(pdata[[id]], 1)$close)-mktMonth$close)/mktMonth$close*100)
   #年初至今涨跌
-  quoteChangeFYear <- c(quoteChangeFYear,(tail(dailyQuote,1)$close-mktFYear[which(mktYest$qtid==id),]$close)/mktFYear[which(mktYest$qtid==id),]$close*100)
-
+  quoteChangeFYear <- c(quoteChangeFYear,(as.numeric(tail(pdata[[id]], 1)$close)-mktFYear$close)/mktFYear$close*100)
 
 }
 
@@ -199,13 +205,29 @@ ChiAbbr <- getMD(data='keyMap',qtid=qtid,key=key)$ChiAbbr
 maDF <- data.frame('1'=tail(dailyQuote,1)$date,'2'=qtid,'3'=ChiAbbr,
                         '4'=income,'5'=quoteChangeDaily,'6'=quoteChangeWeek,'7'=quoteChangeMonth,
                    '8'=quoteChangeFYear)
-
+#排序
 maDF <- maDF[order(maDF$X4,decreasing=T),]
+
+#8、#CSI300指数(沪深300指数的qtid代码就是‘0003000.SH’) ：hs300<-getDailyQuote(data='mktDataIndex',qtid=c('000300.SH'),key=key) 
+#查不到这个qtid。取得的代码在mktFwdDaily也查不到
+#getDailyQuote(data='mktDataIndex',qtid=qtid,startdate=tail(dailyQuote,1)$date,enddate=tail(dailyQuote,1)$date,key=key)
+hs300<-getDailyQuote(data='mktDataIndex',qtid=c('000300.SH'),startdate=sDate,enddate=eDate,key=key) 
+id <- c('000300.SH')
+mktWeek <- getDailyQuote(data='mktDataIndex',qtid = id,startdate=hs300$date[nrow(hs300)-5],enddate=hs300$date[nrow(hs300)-5],key=key)
+mktMonth <- getDailyQuote(data='mktDataIndex',qtid = id,startdate=hs300$date[nrow(hs300)-20],enddate=hs300$date[nrow(hs300)-20],key=key)
+mktFYear <- getDailyQuote(data='mktDataIndex',qtid = id,startdate=hs300$date[1],enddate=hs300$date[1],key=key)
+
+quoteChangeDaily <- (tail(hs300,1)$close-mktYest$close)/mktYest$close*100
+quoteChangeWeek <- (tail(hs300,1)$close-mktWeek$close)/mktWeek$close*100
+quoteChangeMonth <- (tail(hs300,1)$close-mktMonth$close)/mktMonth$close*100
+quoteChangeFYear <- (tail(hs300,1)$close-mktFYear$close)/mktFYear$close*100
+
+#0.3
+hs300Dt <- data.frame('1'=tail(dailyQuote,1)$date,'2'='000300.SH','3'='沪深300','4'=0.3,'5'=quoteChangeDaily,'6'=quoteChangeWeek,'7'=quoteChangeMonth,'8'=quoteChangeFYear)
+
+maDF <- rbind(hs300Dt,maDF)
 
 names(maDF)<-c('日期','代码','名称','收益率(%)','涨跌幅(%)','周涨跌幅(%)','月涨跌幅(%)','年初至今涨跌幅（%）')
 
-postData(maDF,name='maDF',key=key)
+postData(maDF,name='maDataF',key=key)
 
-
-#8、#CSI300指数 ：hs300<-getDailyQuote(data='mktDataIndex',qtid=c('000300.SH'),key=key)
-#getDailyQuote(data='mktDataIndex',qtid=qtid,startdate=tail(dailyQuote,1)$date,enddate=tail(dailyQuote,1)$date,key=key)
