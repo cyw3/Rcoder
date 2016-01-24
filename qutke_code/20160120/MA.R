@@ -15,12 +15,22 @@ init(key)
 #1、设定参数（包括股票组）
 #股票组20，取最高的5支，时间是2015-01-01至今
 
-#试验qtid
-qtid <- c('002230.SZ','002715.SZ')
-#qtid <- c('000001.SZ','000002.SZ')
-
 sDate<-as.Date("2015-1-1") #开始日期
 eDate<-Sys.Date() #结束日期
+
+tradingDay <- getDate(data='tradingDay',startdate=sDate,enddate=eDate,key=key)
+length <- length(tradingDay)
+sDate <- tradingDay[1]
+eDate <- tradingDay[length]
+
+#试验qtid
+# industry <- getIndustry(data='industryType',date=eDate,key=key)
+# qtid <- industry$qtid
+
+qtid <- c('002230.SZ','002715.SZ',"603789.SH", "603799.SH", "603806.SH", "603808.SH", "603818.SH","603828.SH", "603869.SH", "603883.SH",
+          "603885.SH", "603889.SH", "603898.SH", "603899.SH", "603901.SH", "603918.SH", "603939.SH", "603968.SH",
+          "603969.SH", "603988.SH" ,"603989.SH", "603993.SH", "603997.SH", "603998.SH")
+#qtid <- c('000001.SZ','000002.SZ')
 
 
 #2、取每支股票的每交易日收盘价
@@ -48,7 +58,7 @@ genPoint<-function(arg=c(),ldata){
   
   xdata <- ldata[which(ldata[,arg[2]]<=ldata[,arg[1]]),]
   xdata <- cbind(xdata,'op'='UP')
-    
+  
   return(rbind(pdata,xdata))
 } 
 
@@ -76,7 +86,7 @@ for(id in qtid){
 #5、取交易点
 #dataFrame按列排序
 #pdata[order(pdata[,1],decreasing=F),]
-Signal<-function(ldata,pdata,qtid){
+Signal<-function(ldata=c(),pdata,qtid){
   
   if(length(qtid)<=0){
     stop('The length of qtid is at least one.')
@@ -109,7 +119,7 @@ tdata<-Signal(ldata,pdata,qtid)
 trade<-function(tdata,capital=100000,position=1,fee=0){
   
   value <- as.numeric(tdata$close) 
-
+  
   asset <- capital
   if(tdata[1,]$op=='Down'){
     amount <- (asset*position)%/%value[1]
@@ -121,7 +131,7 @@ trade<-function(tdata,capital=100000,position=1,fee=0){
     cash <- asset
     diff <- 0.00
   }
-
+  
   i<-2
   nrow <- nrow(tdata)
   while(i<=nrow){
@@ -197,20 +207,20 @@ for(id in qtid){
   quoteChangeMonth <- c(quoteChangeMonth,(as.numeric(tail(pdata[[id]], 1)$close)-mktMonth$close)/mktMonth$close*100)
   #年初至今涨跌
   quoteChangeFYear <- c(quoteChangeFYear,(as.numeric(tail(pdata[[id]], 1)$close)-mktFYear$close)/mktFYear$close*100)
-
+  
 }
 
 ChiAbbr <- getMD(data='keyMap',qtid=qtid,key=key)$ChiAbbr
 
 maDF <- data.frame('1'=tail(dailyQuote,1)$date,'2'=qtid,'3'=ChiAbbr,
-                        '4'=income,'5'=quoteChangeDaily,'6'=quoteChangeWeek,'7'=quoteChangeMonth,
+                   '4'=income,'5'=quoteChangeDaily,'6'=quoteChangeWeek,'7'=quoteChangeMonth,
                    '8'=quoteChangeFYear)
 #排序
 maDF <- maDF[order(maDF$X4,decreasing=T),]
 
 #8、#CSI300指数(沪深300指数的qtid代码就是‘0003000.SH’) ：hs300<-getDailyQuote(data='mktDataIndex',qtid=c('000300.SH'),key=key) 
 #查不到这个qtid。取得的代码在mktFwdDaily也查不到
-#getDailyQuote(data='mktDataIndex',qtid=qtid,startdate=tail(dailyQuote,1)$date,enddate=tail(dailyQuote,1)$date,key=key)
+
 hs300<-getDailyQuote(data='mktDataIndex',qtid=c('000300.SH'),startdate=sDate,enddate=eDate,key=key) 
 id <- c('000300.SH')
 mktWeek <- getDailyQuote(data='mktDataIndex',qtid = id,startdate=hs300$date[nrow(hs300)-5],enddate=hs300$date[nrow(hs300)-5],key=key)
@@ -222,12 +232,32 @@ quoteChangeWeek <- (tail(hs300,1)$close-mktWeek$close)/mktWeek$close*100
 quoteChangeMonth <- (tail(hs300,1)$close-mktMonth$close)/mktMonth$close*100
 quoteChangeFYear <- (tail(hs300,1)$close-mktFYear$close)/mktFYear$close*100
 
-#0.3
-hs300Dt <- data.frame('1'=tail(dailyQuote,1)$date,'2'='000300.SH','3'='沪深300','4'=0.3,'5'=quoteChangeDaily,'6'=quoteChangeWeek,'7'=quoteChangeMonth,'8'=quoteChangeFYear)
+ma<-function(cdata,mas=c(5,20,60)){ 
+  ldata<-cdata[,grep("date|close", names(cdata)) ]
+  xdata<-cdata$close
+  for(m in mas){
+    #依次 添加列。计算时候，前m-1个数值是NA。因为前面没有数据了。需要凑够5、20、60
+    ldata<-cbind(ldata,SMA(xdata,m))
+  }
+  #为true时候，补全ldata中是na的数值，以最近日期的数据 进行赋值
+  ldata<-na.locf(ldata, fromLast=TRUE)
+  colnames(ldata)<-c('date','close',paste('ma',mas,sep=''))
+  return(ldata)
+}
+
+#收益率 
+hs300c <- ma(hs300,c(5,20))
+hs300p[['000300.SH']] <- genPoint(c(4,3),hs300c)
+hs300l <- Signal(pdata=hs300p,qtid='000300.SH')
+tradeList[['000300.SH']] <- trade(hs300l[['000300.SH']],100000)
+hs300Income <- (tail(tradeList[['000300.SH']]$ticks$asset,1)-tradeList[['000300.SH']]$ticks$asset[1])/tradeList[['000300.SH']]$ticks$asset[1]*100
+
+#4
+hs300Dt <- data.frame('1'=tail(dailyQuote,1)$date,'2'='000300.SH','3'='沪深300','4'=hs300Income,'5'=quoteChangeDaily,'6'=quoteChangeWeek,'7'=quoteChangeMonth,'8'=quoteChangeFYear)
 
 maDF <- rbind(hs300Dt,maDF)
 
-names(maDF)<-c('日期','代码','名称','收益率(%)','涨跌幅(%)','周涨跌幅(%)','月涨跌幅(%)','年初至今涨跌幅（%）')
+#names(maDF)<-c('日期','代码','名称','收益率(%)','涨跌幅(%)','周涨跌幅(%)','月涨跌幅(%)','年初至今涨跌幅（%）')
 
 postData(maDF,name='maDataF',key=key)
 
